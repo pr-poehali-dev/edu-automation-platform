@@ -6,8 +6,11 @@ import Journal from "@/pages/Journal";
 import Diary from "@/pages/Diary";
 import Schedule from "@/pages/Schedule";
 import Notifications from "@/pages/Notifications";
-
-type Role = "teacher" | "student" | "parent";
+import Analytics from "@/pages/Analytics";
+import Planning from "@/pages/Planning";
+import ClassManagement from "@/pages/ClassManagement";
+import AdminPanel from "@/pages/AdminPanel";
+import type { Role } from "@/types/roles";
 
 export default function Index() {
   const [user, setUser] = useState<{ role: Role; name: string } | null>(null);
@@ -19,12 +22,16 @@ export default function Index() {
 
   const renderPage = () => {
     switch (activePage) {
-      case "dashboard": return <Dashboard />;
-      case "journal": return <Journal role={user.role} />;
-      case "diary": return <Diary />;
-      case "schedule": return <Schedule />;
+      case "dashboard":     return <Dashboard />;
+      case "admin":         return <AdminPanel />;
+      case "journal":       return <Journal role={user.role} studentName={user.role === "student" ? user.name : undefined} />;
+      case "diary":         return <Diary role={user.role} />;
+      case "schedule":      return <Schedule />;
+      case "planning":      return <Planning role={user.role} />;
+      case "analytics":     return <Analytics role={user.role} />;
+      case "classmgmt":     return <ClassManagement />;
       case "notifications": return <Notifications />;
-      default: return <Dashboard />;
+      default:              return <Dashboard />;
     }
   };
 

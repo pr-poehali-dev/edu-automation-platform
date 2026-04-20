@@ -1,8 +1,12 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
 
+import type { Role } from "@/types/roles";
+
 interface JournalProps {
-  role: "teacher" | "student" | "parent";
+  role: Role;
+  // для ученика — его имя, чтобы показывать только свои оценки
+  studentName?: string;
 }
 
 const classes = ["9А", "9Б", "10А", "10Б", "11А"];
@@ -53,17 +57,33 @@ function quarterStyle(q: string) {
   return "bg-red-100 text-red-700";
 }
 
-export default function Journal({ role }: JournalProps) {
+// Урок с темой и комментарием учителя
+interface LessonNote { date: string; topic: string; comment: string }
+const initialLessonNotes: LessonNote[] = dates.map((d, i) => ({
+  date: d,
+  topic: ["Квадратные уравнения", "Системы уравнений", "Неравенства", "Тригонометрия", "Производная", "Интеграл", "Вектора", "Геометрия"][i] ?? "",
+  comment: "",
+}));
+
+export default function Journal({ role, studentName = "Андреев Сергей" }: JournalProps) {
   const [activeClass, setActiveClass] = useState("9А");
   const [activeSubject, setActiveSubject] = useState("Математика");
   const [tableData, setTableData] = useState(initialStudents);
-  const [activeTab, setActiveTab] = useState<"grades" | "attendance">("grades");
+  const [activeTab, setActiveTab] = useState<"grades" | "attendance" | "notes">("grades");
+  const [lessonNotes, setLessonNotes] = useState(initialLessonNotes);
+  const [editNote, setEditNote] = useState<number | null>(null);
+  const [noteDraft, setNoteDraft] = useState({ topic: "", comment: "" });
 
   const [editCell, setEditCell] = useState<{ row: number; col: number } | null>(null);
   const [editValue, setEditValue] = useState("");
   const [editComment, setEditComment] = useState("");
 
-  const isTeacher = role === "teacher";
+  const isTeacher = role === "teacher" || role === "admin";
+
+  // Ученик видит только строку со своей фамилией
+  const visibleStudents = role === "student"
+    ? tableData.filter(s => s.name === studentName)
+    : tableData;
 
   function openEdit(si: number, gi: number) {
     if (!isTeacher) return;
@@ -158,18 +178,69 @@ export default function Journal({ role }: JournalProps) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2">
-        {(["grades", "attendance"] as const).map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`px-5 py-2.5 rounded-2xl text-sm font-semibold transition-all flex items-center gap-2 ${activeTab === tab ? "gradient-blue text-white shadow-card" : "glass text-foreground hover:bg-white/80"}`}>
-            <Icon name={tab === "grades" ? "Star" : "UserCheck"} size={16} />
-            {tab === "grades" ? "Оценки" : "Посещаемость"}
+      <div className="flex gap-2 flex-wrap">
+        {([
+          { id: "grades",     label: "Оценки",          icon: "Star" },
+          { id: "attendance", label: "Посещаемость",     icon: "UserCheck" },
+          ...(isTeacher ? [{ id: "notes" as const, label: "Конспект урока", icon: "FileText" }] : []),
+        ] as const).map((t) => (
+          <button key={t.id} onClick={() => setActiveTab(t.id as "grades" | "attendance" | "notes")}
+            className={`px-5 py-2.5 rounded-2xl text-sm font-semibold transition-all flex items-center gap-2 ${activeTab === t.id ? "gradient-blue text-white shadow-card" : "glass text-foreground hover:bg-white/80"}`}>
+            <Icon name={t.icon} size={16} />
+            {t.label}
           </button>
         ))}
       </div>
 
+      {/* Notes tab */}
+      {activeTab === "notes" && (
+        <div className="space-y-3">
+          {lessonNotes.map((note, idx) => (
+            <div key={idx} className="glass rounded-3xl p-5 card-hover">
+              {editNote === idx ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Тема урока</label>
+                    <input value={noteDraft.topic} onChange={e => setNoteDraft(p => ({ ...p, topic: e.target.value }))}
+                      className="w-full mt-1 px-4 py-2.5 rounded-2xl border border-border bg-white/60 text-sm outline-none focus:border-elzhur-blue transition-all" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Комментарий / конспект</label>
+                    <textarea value={noteDraft.comment} onChange={e => setNoteDraft(p => ({ ...p, comment: e.target.value }))}
+                      rows={3} placeholder="Что прошли на уроке, задания, ссылки..."
+                      className="w-full mt-1 px-4 py-2.5 rounded-2xl border border-border bg-white/60 text-sm outline-none focus:border-elzhur-blue transition-all resize-none" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditNote(null)} className="flex-1 py-2 rounded-xl bg-white/60 text-sm font-semibold text-foreground hover:bg-white transition-all">Отмена</button>
+                    <button onClick={() => {
+                      setLessonNotes(prev => prev.map((n, i) => i === idx ? { ...n, ...noteDraft } : n));
+                      setEditNote(null);
+                    }} className="flex-1 py-2 rounded-xl gradient-blue text-white text-sm font-semibold transition-all">Сохранить</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 gradient-blue rounded-2xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    {idx + 1}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold text-foreground">{note.topic || <span className="text-muted-foreground italic">Тема не указана</span>}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{note.date}</div>
+                    {note.comment && <p className="text-sm text-foreground/70 mt-2 leading-relaxed">{note.comment}</p>}
+                  </div>
+                  <button onClick={() => { setEditNote(idx); setNoteDraft({ topic: note.topic, comment: note.comment }); }}
+                    className="p-2 rounded-xl bg-white/60 hover:bg-white transition-all flex-shrink-0">
+                    <Icon name="Pencil" size={15} className="text-muted-foreground" />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Table */}
-      <div className="glass rounded-3xl p-1 overflow-hidden">
+      {activeTab !== "notes" && <div className="glass rounded-3xl p-1 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[780px]">
             <thead>
@@ -189,7 +260,7 @@ export default function Journal({ role }: JournalProps) {
               </tr>
             </thead>
             <tbody>
-              {tableData.map((student, si) => {
+              {visibleStudents.map((student, si) => {
                 const quarter = calcQuarter(student.grades);
                 const absences = student.attendance.filter(a => !a).length;
                 return (
@@ -259,7 +330,7 @@ export default function Journal({ role }: JournalProps) {
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
 
       {/* Legend */}
       <div className="glass rounded-2xl px-5 py-4 flex flex-wrap gap-4 items-center">

@@ -1,33 +1,42 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
+import type { Role } from "@/types/roles";
 
 interface LayoutProps {
   children: React.ReactNode;
   activePage: string;
   onNavigate: (page: string) => void;
-  role: "teacher" | "student" | "parent";
+  role: Role;
   userName: string;
   onLogout: () => void;
 }
 
-const navItems = [
-  { id: "dashboard", label: "Главная", icon: "LayoutDashboard" },
-  { id: "journal", label: "Журнал", icon: "BookOpen" },
-  { id: "diary", label: "Дневник", icon: "NotebookPen" },
-  { id: "schedule", label: "Расписание", icon: "CalendarDays" },
-  { id: "notifications", label: "Уведомления", icon: "Bell" },
+type NavItem = { id: string; label: string; icon: string; roles?: Role[] };
+
+const allNavItems: NavItem[] = [
+  { id: "dashboard",       label: "Главная",          icon: "LayoutDashboard" },
+  { id: "admin",           label: "Панель завуча",     icon: "Shield",           roles: ["admin"] },
+  { id: "journal",         label: "Журнал",            icon: "BookOpen",         roles: ["admin","teacher","student","parent"] },
+  { id: "diary",           label: "Дневник",           icon: "NotebookPen",      roles: ["admin","teacher","student","parent"] },
+  { id: "schedule",        label: "Расписание",        icon: "CalendarDays" },
+  { id: "planning",        label: "Планирование",      icon: "BookMarked",       roles: ["admin","teacher"] },
+  { id: "analytics",       label: "Аналитика",         icon: "TrendingUp",       roles: ["admin","teacher"] },
+  { id: "classmgmt",       label: "Классное рук.",     icon: "Users",            roles: ["admin","teacher"] },
+  { id: "notifications",   label: "Уведомления",       icon: "Bell" },
 ];
 
 const roleGradients: Record<string, string> = {
+  admin:   "gradient-violet",
   teacher: "gradient-blue",
   student: "gradient-green",
-  parent: "gradient-orange",
+  parent:  "gradient-orange",
 };
 
 const roleLabels: Record<string, string> = {
+  admin:   "Завуч",
   teacher: "Учитель",
   student: "Ученик",
-  parent: "Родитель",
+  parent:  "Родитель",
 };
 
 function initials(name: string) {
@@ -37,6 +46,7 @@ function initials(name: string) {
 export default function Layout({ children, activePage, onNavigate, role, userName, onLogout }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const gradient = roleGradients[role];
+  const navItems = allNavItems.filter(item => !item.roles || item.roles.includes(role));
 
   return (
     <div className="min-h-screen gradient-bg flex">

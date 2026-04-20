@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Icon from "@/components/ui/icon";
+import type { Role } from "@/types/roles";
 
 const weekDays = [
   { day: "Пн", date: "14 апр", full: "Понедельник" },
@@ -9,7 +10,13 @@ const weekDays = [
   { day: "Пт", date: "18 апр", full: "Пятница" },
 ];
 
-const homeworks: Record<string, { subject: string; task: string; teacher: string; dueDate: string; completed: boolean; grade?: number; comment?: string; color: string }[]> = {
+interface HWEntry {
+  subject: string; task: string; teacher: string; dueDate: string;
+  completed: boolean; grade?: number; comment?: string; color: string;
+  files?: string[]; submission?: string; submissionStatus?: "pending" | "checked" | "returned";
+}
+
+const homeworks: Record<string, HWEntry[]> = {
   "Пн": [
     { subject: "Математика", task: "Решить задачи §12, упр. 45–50. Повторить формулы тригонометрии.", teacher: "Иванова М.В.", dueDate: "До вт, 15 апр", completed: true, grade: 5, color: "gradient-blue" },
     { subject: "Физика", task: "Прочитать параграф 18. Ответить на вопросы 1–5.", teacher: "Петров А.С.", dueDate: "До вт, 15 апр", completed: true, grade: 4, color: "gradient-cyan" },
@@ -34,14 +41,50 @@ const homeworks: Record<string, { subject: string; task: string; teacher: string
   ],
 };
 
-export default function Diary() {
+interface DiaryProps { role?: Role }
+
+export default function Diary({ role = "student" }: DiaryProps) {
   const [activeDay, setActiveDay] = useState("Ср");
   const [tasks, setTasks] = useState(homeworks);
   const [showAdd, setShowAdd] = useState(false);
-  const [newTask, setNewTask] = useState({ subject: "", task: "", dueDate: "" });
+  const [newTask, setNewTask] = useState({ subject: "", task: "", dueDate: "", files: [] as string[] });
+  const [reviewIdx, setReviewIdx] = useState<number | null>(null);
+  const [reviewGrade, setReviewGrade] = useState("");
+  const [reviewComment, setReviewComment] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isTeacher = role === "teacher" || role === "admin";
+  const isStudent = role === "student";
 
   const currentTasks = tasks[activeDay] ?? [];
   const completedCount = currentTasks.filter(t => t.completed).length;
+
+  function attachFile(idx: number, fileName: string) {
+    setTasks(prev => {
+      const updated = [...(prev[activeDay] ?? [])];
+      const existing = updated[idx].files ?? [];
+      updated[idx] = { ...updated[idx], files: [...existing, fileName], submission: fileName, submissionStatus: "pending" };
+      return { ...prev, [activeDay]: updated };
+    });
+  }
+
+  function saveReview() {
+    if (reviewIdx === null) return;
+    const g = parseInt(reviewGrade);
+    setTasks(prev => {
+      const updated = [...(prev[activeDay] ?? [])];
+      updated[reviewIdx] = {
+        ...updated[reviewIdx],
+        grade: g >= 1 && g <= 5 ? g : undefined,
+        comment: reviewComment,
+        submissionStatus: "checked",
+      };
+      return { ...prev, [activeDay]: updated };
+    });
+    setReviewIdx(null);
+    setReviewGrade("");
+    setReviewComment("");
+  }
 
   function toggleComplete(idx: number) {
     setTasks(prev => {
@@ -187,6 +230,52 @@ export default function Diary() {
                     {hw.task}
                   </p>
 
+                  {/* Прикреплённые файлы учителем */}
+                  {hw.files && hw.files.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {hw.files.map((f, fi) => (
+                        <div key={fi} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
+                          <Icon name="Paperclip" size={12} />
+                          {f}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Статус сдачи */}
+                  {hw.submission && (
+                    <div className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium ${
+                      hw.submissionStatus === "checked" ? "bg-emerald-50 text-emerald-700" :
+                      hw.submissionStatus === "returned" ? "bg-red-50 text-red-600" :
+                      "bg-amber-50 text-amber-700"
+                    }`}>
+                      <Icon name={hw.submissionStatus === "checked" ? "CheckCircle" : hw.submissionStatus === "returned" ? "RotateCcw" : "Clock"} size={13} />
+                      {hw.submissionStatus === "checked" ? "Проверено" : hw.submissionStatus === "returned" ? "Вернули на доработку" : `Сдано: ${hw.submission}`}
+                    </div>
+                  )}
+
+                  {/* Кнопка «Сдать ДЗ» для ученика */}
+                  {isStudent && !hw.submission && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <input ref={fileInputRef} type="file" className="hidden"
+                        onChange={e => { if (e.target.files?.[0]) attachFile(i, e.target.files[0].name); }} />
+                      <button onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-700 font-medium hover:bg-blue-100 transition-all">
+                        <Icon name="Upload" size={13} />
+                        Прикрепить файл
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Кнопка проверки для учителя */}
+                  {isTeacher && hw.submission && hw.submissionStatus === "pending" && (
+                    <button onClick={() => { setReviewIdx(i); setReviewGrade(""); setReviewComment(""); }}
+                      className="mt-3 flex items-center gap-1.5 px-3 py-2 rounded-xl gradient-blue text-white text-xs font-semibold shadow-card hover:shadow-card-hover transition-all">
+                      <Icon name="ClipboardCheck" size={13} />
+                      Проверить работу
+                    </button>
+                  )}
+
                   {hw.comment && (
                     <div className="mt-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
                       <Icon name="MessageCircle" size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
@@ -242,6 +331,43 @@ export default function Diary() {
               <button onClick={addTask} className="flex-1 py-3 rounded-2xl gradient-blue text-white text-sm font-semibold shadow-card hover:shadow-card-hover transition-all">
                 Добавить
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Review modal */}
+      {reviewIdx !== null && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4" onClick={() => setReviewIdx(null)}>
+          <div className="glass rounded-3xl p-6 w-full max-w-sm shadow-card-hover" onClick={e => e.stopPropagation()}>
+            <h3 className="font-montserrat font-bold text-lg text-foreground mb-1">Проверка работы</h3>
+            <p className="text-sm text-muted-foreground mb-5">
+              {currentTasks[reviewIdx]?.subject} · {currentTasks[reviewIdx]?.submission}
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Оценка</label>
+                <div className="flex gap-2 mt-2">
+                  {[1,2,3,4,5].map(n => (
+                    <button key={n} onClick={() => setReviewGrade(reviewGrade === String(n) ? "" : String(n))}
+                      className={`flex-1 h-10 rounded-xl text-sm font-bold transition-all ${
+                        reviewGrade === String(n) ? "gradient-blue text-white scale-105" : "bg-white/60 text-foreground hover:bg-white"
+                      }`}>{n}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Комментарий</label>
+                <textarea value={reviewComment} onChange={e => setReviewComment(e.target.value)}
+                  placeholder="Замечания, рекомендации..." rows={3}
+                  className="w-full mt-1.5 px-4 py-3 rounded-2xl border border-border bg-white/60 text-sm outline-none focus:border-elzhur-blue resize-none transition-all" />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setReviewIdx(null)}
+                className="flex-1 py-3 rounded-2xl bg-white/60 text-sm font-semibold text-foreground hover:bg-white transition-all">Отмена</button>
+              <button onClick={saveReview}
+                className="flex-1 py-3 rounded-2xl gradient-blue text-white text-sm font-semibold shadow-card hover:shadow-card-hover transition-all">Сохранить оценку</button>
             </div>
           </div>
         </div>
