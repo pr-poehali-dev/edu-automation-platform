@@ -5,6 +5,9 @@ interface LayoutProps {
   children: React.ReactNode;
   activePage: string;
   onNavigate: (page: string) => void;
+  role: "teacher" | "student" | "parent";
+  userName: string;
+  onLogout: () => void;
 }
 
 const navItems = [
@@ -15,26 +18,30 @@ const navItems = [
   { id: "notifications", label: "Уведомления", icon: "Bell" },
 ];
 
-const roleColors: Record<string, string> = {
+const roleGradients: Record<string, string> = {
   teacher: "gradient-blue",
   student: "gradient-green",
   parent: "gradient-orange",
 };
 
-export default function Layout({ children, activePage, onNavigate }: LayoutProps) {
-  const [role] = useState<"teacher" | "student" | "parent">("teacher");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+const roleLabels: Record<string, string> = {
+  teacher: "Учитель",
+  student: "Ученик",
+  parent: "Родитель",
+};
 
-  const roleLabels = { teacher: "Учитель", student: "Ученик", parent: "Родитель" };
+function initials(name: string) {
+  return name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+}
+
+export default function Layout({ children, activePage, onNavigate, role, userName, onLogout }: LayoutProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const gradient = roleGradients[role];
 
   return (
     <div className="min-h-screen gradient-bg flex">
-      {/* Sidebar overlay mobile */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/30 z-20 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/30 z-20 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Sidebar */}
@@ -42,7 +49,6 @@ export default function Layout({ children, activePage, onNavigate }: LayoutProps
         className={`fixed top-0 left-0 h-full w-64 glass z-30 flex flex-col transition-transform duration-300
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 lg:static lg:z-auto`}
       >
-        {/* Logo */}
         <div className="p-6 pb-4">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 gradient-blue rounded-2xl flex items-center justify-center shadow-glow-blue">
@@ -55,20 +61,19 @@ export default function Layout({ children, activePage, onNavigate }: LayoutProps
           </div>
 
           {/* User card */}
-          <div className="gradient-blue rounded-2xl p-4 text-white">
+          <div className={`${gradient} rounded-2xl p-4 text-white`}>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm">
-                АИ
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                {initials(userName)}
               </div>
-              <div>
-                <div className="font-semibold text-sm">Алексей Иванов</div>
+              <div className="min-w-0">
+                <div className="font-semibold text-sm truncate">{userName}</div>
                 <div className="text-xs text-white/70">{roleLabels[role]}</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 px-3 py-2 space-y-1">
           {navItems.map((item) => (
             <button
@@ -91,47 +96,46 @@ export default function Layout({ children, activePage, onNavigate }: LayoutProps
           ))}
         </nav>
 
-        {/* Bottom */}
-        <div className="p-4 border-t border-border/50">
+        <div className="p-4 border-t border-border/50 space-y-1">
           <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-muted-foreground hover:bg-white/60 transition-all text-sm font-medium">
             <Icon name="Settings" size={18} />
             Настройки
+          </button>
+          <button
+            onClick={onLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-50 transition-all text-sm font-medium"
+          >
+            <Icon name="LogOut" size={18} />
+            Выйти
           </button>
         </div>
       </aside>
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-h-screen lg:pl-0">
-        {/* Top bar */}
         <header className="glass sticky top-0 z-10 px-6 py-4 flex items-center justify-between border-b border-border/40">
-          <button
-            className="lg:hidden p-2 rounded-xl hover:bg-white/60 transition-all"
-            onClick={() => setSidebarOpen(true)}
-          >
+          <button className="lg:hidden p-2 rounded-xl hover:bg-white/60 transition-all" onClick={() => setSidebarOpen(true)}>
             <Icon name="Menu" size={20} />
           </button>
 
-          <div className="flex items-center gap-2">
-            <div className="hidden sm:block text-sm text-muted-foreground">
-              Сегодня,{" "}
-              <span className="font-medium text-foreground">
-                {new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
-              </span>
-            </div>
+          <div className="hidden sm:block text-sm text-muted-foreground">
+            Сегодня,{" "}
+            <span className="font-medium text-foreground">
+              {new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
+            </span>
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="relative p-2 rounded-xl hover:bg-white/60 transition-all">
+            <button className="relative p-2 rounded-xl hover:bg-white/60 transition-all" onClick={() => onNavigate("notifications")}>
               <Icon name="Bell" size={20} className="text-muted-foreground" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full notification-badge" />
             </button>
-            <div className="w-9 h-9 gradient-blue rounded-full flex items-center justify-center text-white text-sm font-bold">
-              АИ
+            <div className={`w-9 h-9 ${gradient} rounded-full flex items-center justify-center text-white text-sm font-bold`}>
+              {initials(userName)}
             </div>
           </div>
         </header>
 
-        {/* Content */}
         <main className="flex-1 p-6">
           {children}
         </main>
