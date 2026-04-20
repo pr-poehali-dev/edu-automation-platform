@@ -1,14 +1,28 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import Layout from "@/components/Layout";
+import Dashboard from "@/pages/Dashboard";
+import Journal from "@/pages/Journal";
+import Diary from "@/pages/Diary";
+import Schedule from "@/pages/Schedule";
+import Notifications from "@/pages/Notifications";
 
-const Index = () => {
+export default function Index() {
+  const [activePage, setActivePage] = useState("dashboard");
+
+  const renderPage = () => {
+    switch (activePage) {
+      case "dashboard": return <Dashboard />;
+      case "journal": return <Journal />;
+      case "diary": return <Diary />;
+      case "schedule": return <Schedule />;
+      case "notifications": return <Notifications />;
+      default: return <Dashboard />;
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4 color-black text-black">Добро пожаловать!</h1>
-        <p className="text-xl text-gray-600">тут будет отображаться ваш проект</p>
-      </div>
-    </div>
+    <Layout activePage={activePage} onNavigate={setActivePage}>
+      {renderPage()}
+    </Layout>
   );
-};
-
-export default Index;
+}
